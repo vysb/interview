@@ -14,7 +14,8 @@ class WhisperTranscriber:
         model_size: str = "base",
         device: str = "cpu",
         compute_type: str = "int8",
-        language: Optional[str] = None,
+        language: Optional[str] = "ru",
+        initial_prompt: Optional[str] = None,
     ):
         """Initialize Whisper transcriber.
 
@@ -23,11 +24,13 @@ class WhisperTranscriber:
             device: Device to use (cpu, cuda)
             compute_type: Compute type (int8, int8_float16, float16, float32)
             language: Language code (None for auto-detection)
+            initial_prompt: Initial prompt text to guide transcription
         """
         self.model_size = model_size
         self.device = device
         self.compute_type = compute_type
         self.language = language
+        self.initial_prompt = initial_prompt
         self.model: Optional[WhisperModel] = None
 
     def load_model(self) -> None:
@@ -83,6 +86,7 @@ class WhisperTranscriber:
             best_of=best_of,
             temperature=temperature,
             vad_filter=vad_filter,
+            initial_prompt=self.initial_prompt,
         )
 
         # Combine all segments

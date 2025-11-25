@@ -20,11 +20,12 @@ class TranscriptionApp:
     def __init__(
         self,
         sample_rate: int = 16000,
-        model_size: str = "base",
+        model_size: str = "small",
         device: str = "cpu",
         language: Optional[str] = None,
         pre_speech_buffer_ms: int = 300,
         post_speech_buffer_ms: int = 500,
+        initial_prompt: Optional[str] = None,
     ):
         """Initialize transcription application.
 
@@ -35,8 +36,11 @@ class TranscriptionApp:
             language: Language code (None for auto)
             pre_speech_buffer_ms: Pre-speech buffer in ms
             post_speech_buffer_ms: Post-speech buffer in ms
+            initial_prompt: Initial prompt text to guide transcription
         """
         self.sample_rate = sample_rate
+        self.language = language
+        self.initial_prompt = initial_prompt
         self.recorder = AudioRecorder(sample_rate=sample_rate)
         self.vad = VoiceActivityDetector(
             sample_rate=sample_rate,
@@ -47,6 +51,7 @@ class TranscriptionApp:
             model_size=model_size,
             device=device,
             language=language,
+            initial_prompt=initial_prompt,
         )
         self.is_running = False
         self.executor = ThreadPoolExecutor(max_workers=2)
@@ -59,8 +64,7 @@ class TranscriptionApp:
             audio_segment: Complete audio segment
         """
         # Submit transcription to thread pool
-        future = self.executor.submit(self._transcribe_segment, audio_segment)
-        # Store future if needed for cleanup
+        self.executor.submit(self._transcribe_segment, audio_segment)
 
     def _transcribe_segment(self, audio_segment: np.ndarray) -> None:
         """Transcribe audio segment.
@@ -91,6 +95,15 @@ class TranscriptionApp:
         """Start transcription."""
         if self.is_running:
             return
+
+        # Log configuration
+        language_str = self.language if self.language else "auto-detection"
+        print(f"Language: {language_str}", flush=True)
+        
+        if self.initial_prompt:
+            print(f"Initial prompt: {self.initial_prompt}", flush=True)
+        else:
+            print("Initial prompt: not used", flush=True)
 
         print("Loading Whisper model...", flush=True)
         self.transcriber.load_model()
@@ -151,7 +164,7 @@ def main():
     parser.add_argument(
         "--model-size",
         type=str,
-        default="base",
+        default="small",
         choices=["tiny", "base", "small", "medium", "large"],
         help="Whisper model size (default: base)",
     )
@@ -180,8 +193,26 @@ def main():
         default=500,
         help="Post-speech buffer in milliseconds to prevent word cutoffs (default: 500)",
     )
+    parser.add_argument(
+        "--initial-prompt",
+        type=str,
+        default=None,
+        help="Initial prompt text to guide transcription. Default: programming context prompt",
+    )
 
     args = parser.parse_args()
+
+    # Set default initial prompt if not provided
+    default_prompt = (
+        "Это разговор о программировании."
+    )
+    # Use default if not provided, or None if empty string is explicitly provided
+    if args.initial_prompt is None:
+        initial_prompt = default_prompt
+    elif args.initial_prompt.strip() == "":
+        initial_prompt = None
+    else:
+        initial_prompt = args.initial_prompt
 
     app = TranscriptionApp(
         sample_rate=args.sample_rate,
@@ -190,6 +221,7 @@ def main():
         language=args.language,
         pre_speech_buffer_ms=args.pre_speech_buffer_ms,
         post_speech_buffer_ms=args.post_speech_buffer_ms,
+        initial_prompt=initial_prompt,
     )
 
     app.run()
