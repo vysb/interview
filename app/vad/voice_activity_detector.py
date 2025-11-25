@@ -1,6 +1,7 @@
 """Voice Activity Detection with buffering to prevent word cutoffs."""
 
 import collections
+import time
 from typing import Callable, Optional
 
 import numpy as np
@@ -18,6 +19,7 @@ class VoiceActivityDetector:
         min_speech_duration_ms: int = 250,
         min_silence_duration_ms: int = 800,
         speech_threshold: float = 0.5,
+        max_speech_duration_ms: int = 15000,
     ):
         """Initialize VAD detector.
 
@@ -28,6 +30,7 @@ class VoiceActivityDetector:
             min_speech_duration_ms: Minimum speech duration to trigger (ms)
             min_silence_duration_ms: Minimum silence duration to end segment (ms)
             speech_threshold: Probability threshold for speech detection
+            max_speech_duration_ms: Maximum speech duration before forced interruption (ms)
         """
         self.sample_rate = sample_rate
         self.pre_speech_buffer_ms = pre_speech_buffer_ms
@@ -35,6 +38,7 @@ class VoiceActivityDetector:
         self.min_speech_duration_ms = min_speech_duration_ms
         self.min_silence_duration_ms = min_silence_duration_ms
         self.speech_threshold = speech_threshold
+        self.max_speech_duration_ms = max_speech_duration_ms
 
         # Convert ms to samples
         self.pre_speech_buffer_samples = int(
@@ -73,6 +77,7 @@ class VoiceActivityDetector:
         self.silence_counter = 0
         self.speech_counter = 0
         self.is_speaking = False
+        self.speech_start_time: Optional[float] = None
         self.on_speech_segment: Optional[Callable[[np.ndarray], None]] = None
 
     def _is_speech(self, audio_chunk: np.ndarray) -> bool:
@@ -142,6 +147,13 @@ class VoiceActivityDetector:
             is_speech: Whether speech was detected
             vad_chunk: The processed audio chunk
         """
+        # Check if max speech duration exceeded (force interruption)
+        if self.is_speaking and self.speech_start_time is not None:
+            elapsed_ms = (time.time() - self.speech_start_time) * 1000
+            if elapsed_ms >= self.max_speech_duration_ms:
+                self._end_speech_segment()
+                return
+
         chunk_size = len(vad_chunk)
 
         if is_speech:
@@ -182,6 +194,7 @@ class VoiceActivityDetector:
             return
 
         self.is_speaking = True
+        self.speech_start_time = time.time()
         self.current_segment = []
         self.post_speech_buffer = []
 
@@ -218,6 +231,7 @@ class VoiceActivityDetector:
         self.current_segment = []
         self.post_speech_buffer = []
         self.is_speaking = False
+        self.speech_start_time = None
         self.silence_counter = 0
 
     def set_speech_callback(self, callback: Callable[[np.ndarray], None]) -> None:

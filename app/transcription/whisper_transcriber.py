@@ -14,7 +14,7 @@ class WhisperTranscriber:
         model_size: str = "base",
         device: str = "cpu",
         compute_type: str = "int8",
-        language: Optional[str] = "ru",
+        language: Optional[str] = None,
         initial_prompt: Optional[str] = None,
     ):
         """Initialize Whisper transcriber.
