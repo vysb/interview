@@ -1,5 +1,6 @@
-# Real-time Audio Transcription with VAD
+# Audio Transcription with LLM response
 
+Real-time Audio Transcription with VAD and LLM response.
 Заапись аудио и транскрипции его в реальном времени с использованием VAD и возможностью отправки в LLM.
 
 ![Демонстрация работы приложения](interview.gif)
